@@ -229,6 +229,46 @@ final class NotifEyesTests: XCTestCase {
         XCTAssertEqual(threadsAfterRead.first { $0.id == SeedIDs.threadBooking }?.unreadCount, 0)
     }
 
+    func testSubmitReviewRequiresCompletedBookingAndPersistsByRole() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .mayaPatel)
+        let review = try await api.submitReview(SubmitReviewInput(
+            bookingId: SeedIDs.bookingCompleted,
+            authorRole: .od,
+            ratingOverall: 5,
+            ratingSpecifics: ["communication": 5, "professionalism": 5],
+            publicComment: "Great support team and a smooth day.",
+            privateFeedback: nil
+        ))
+
+        let loaded = try await api.review(forBooking: SeedIDs.bookingCompleted, role: .od)
+        XCTAssertEqual(loaded, review)
+        XCTAssertEqual(loaded?.publicComment, "Great support team and a smooth day.")
+    }
+
+    func testSubmitReviewRejectsIncompleteBooking() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .mayaPatel)
+
+        do {
+            _ = try await api.submitReview(SubmitReviewInput(
+                bookingId: SeedIDs.bookingMaya,
+                authorRole: .od,
+                ratingOverall: 5,
+                ratingSpecifics: [:],
+                publicComment: nil,
+                privateFeedback: nil
+            ))
+            XCTFail("Review should require a completed booking.")
+        } catch APIError.invalid {
+            XCTAssertTrue(true)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testLiveAPIStubsThrowNotImplemented() async {
         do {
             _ = try await LiveAPI().currentSession()

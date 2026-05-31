@@ -25,6 +25,7 @@ struct BookingDetailScreen: View {
                 contractSection(detail)
                 shiftDaySection(detail)
                 conversationSection(detail)
+                reviewSection(detail)
                 cancellationSection(detail)
             } else if isLoading {
                 ProgressView("Loading booking")
@@ -190,6 +191,19 @@ struct BookingDetailScreen: View {
                 NavigationLink(value: Route.messageThread(thread.id)) {
                     Label("Open booking thread", systemImage: "message")
                 }
+            }
+        }
+    }
+
+    private func reviewSection(_ detail: BookingDetail) -> some View {
+        Section("Review") {
+            if detail.booking.status == .completed {
+                NavigationLink(value: Route.review(detail.booking.id)) {
+                    Label("Leave or view review", systemImage: "star")
+                }
+            } else {
+                Text("Reviews open after check-out.")
+                    .foregroundStyle(.secondary)
             }
         }
     }

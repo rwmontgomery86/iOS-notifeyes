@@ -718,6 +718,21 @@ actor MockStore {
     }
 
     func submitReview(_ input: SubmitReviewInput) throws -> Review {
+        let session = try requireCurrentSession()
+        let booking = try bookingValue(id: input.bookingId)
+        guard booking.status == .completed else {
+            throw APIError.invalid("Reviews open after check-out.")
+        }
+        switch input.authorRole {
+        case .od:
+            guard session.role == .od, session.user.odId == booking.odId else {
+                throw APIError.unauthorized
+            }
+        case .practice:
+            guard session.role == .practice, session.user.practiceId == booking.practiceId else {
+                throw APIError.unauthorized
+            }
+        }
         guard (1...5).contains(input.ratingOverall) else {
             throw APIError.invalid("Rating must be between 1 and 5.")
         }
