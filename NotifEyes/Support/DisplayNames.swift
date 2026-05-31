@@ -70,6 +70,19 @@ extension BookingStatus {
     }
 }
 
+extension PayoutStatus {
+    var displayName: String {
+        switch self {
+        case .scheduled:
+            return "Scheduled"
+        case .sent:
+            return "Sent"
+        case .failed:
+            return "Failed"
+        }
+    }
+}
+
 extension VerificationStatus {
     var displayName: String {
         switch self {

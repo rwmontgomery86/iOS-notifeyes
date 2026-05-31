@@ -26,14 +26,6 @@ struct ODWatchZonesScreen: View {
                 } label: {
                     Label("New watch zone", systemImage: "plus.circle.fill")
                 }
-
-                if let firstActiveZone = zones.first(where: { !$0.paused }) {
-                    Button {
-                        Task { await simulate(zone: firstActiveZone) }
-                    } label: {
-                        Label("Simulate a matching shift", systemImage: "bell.badge")
-                    }
-                }
             }
 
             Section("Your zones") {
@@ -118,15 +110,6 @@ struct ODWatchZonesScreen: View {
             for index in offsets {
                 try await env.api.deleteWatchZone(zones[index].id)
             }
-            await load()
-        } catch {
-            errorMessage = userFacingMessage(for: error)
-        }
-    }
-
-    private func simulate(zone: WatchZone) async {
-        do {
-            _ = try await env.api.simulateMatchingShift(for: zone.id)
             await load()
         } catch {
             errorMessage = userFacingMessage(for: error)

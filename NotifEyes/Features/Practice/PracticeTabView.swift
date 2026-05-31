@@ -3,8 +3,8 @@ import SwiftUI
 enum PracticeTab: Hashable {
     case dashboard
     case post
-    case shifts
-    case applicants
+    case billing
+    case notifications
     case messages
     case settings
 }
@@ -17,11 +17,12 @@ struct PracticeTabView: View {
     @State private var selectedTab: PracticeTab = .dashboard
     @State private var dashboardRouter = Router()
     @State private var postRouter = Router()
-    @State private var shiftsRouter = Router()
-    @State private var applicantsRouter = Router()
+    @State private var billingRouter = Router()
+    @State private var notificationsRouter = Router()
     @State private var messagesRouter = Router()
     @State private var settingsRouter = Router()
     @State private var bannerNotification: AppNotification?
+    @State private var notificationUnreadCount = 0
     @State private var messageUnreadCount = 0
 
     var body: some View {
@@ -36,30 +37,14 @@ struct PracticeTabView: View {
             .tabItem { Label("Dashboard", systemImage: "rectangle.grid.2x2") }
             .tag(PracticeTab.dashboard)
 
-            TabNavigationStack(router: postRouter, title: "Post") {
+            TabNavigationStack(router: postRouter, title: "Post a shift") {
                 PostShiftScreen(session: session, onPosted: { postedShiftId in
-                    selectedTab = .shifts
-                    shiftsRouter.append(.shiftDetail(postedShiftId))
+                    selectedTab = .dashboard
+                    dashboardRouter.append(.shiftDetail(postedShiftId))
                 })
             }
-            .tabItem { Label("Post", systemImage: "plus.circle") }
+            .tabItem { Label("Post a shift", systemImage: "plus.circle") }
             .tag(PracticeTab.post)
-
-            TabNavigationStack(router: shiftsRouter, title: "Shifts") {
-                PracticeShiftsScreen(
-                    session: session,
-                    openShift: { openShift($0) },
-                    openApplicants: { openApplicants($0) }
-                )
-            }
-            .tabItem { Label("Shifts", systemImage: "calendar") }
-            .tag(PracticeTab.shifts)
-
-            TabNavigationStack(router: applicantsRouter, title: "Applicants") {
-                PracticeApplicantsOverviewScreen(session: session)
-            }
-            .tabItem { Label("Applicants", systemImage: "person.crop.circle.badge.checkmark") }
-            .tag(PracticeTab.applicants)
 
             TabNavigationStack(router: messagesRouter, title: "Messages") {
                 MessagesListScreen(session: session)
@@ -68,10 +53,25 @@ struct PracticeTabView: View {
             .badge(messageUnreadCount)
             .tag(PracticeTab.messages)
 
-            TabNavigationStack(router: settingsRouter, title: "Settings") {
-                PlaceholderScreen(title: "Settings", systemImage: "gearshape", message: "Practice settings land later.")
+            TabNavigationStack(router: notificationsRouter, title: "Notifications") {
+                NotificationsListScreen(session: session, onNotificationStateChanged: {
+                    Task { await loadNotificationUnreadCount() }
+                })
             }
-            .tabItem { Label("Settings", systemImage: "gearshape") }
+            .tabItem { Label("Notifications", systemImage: "bell") }
+            .badge(notificationUnreadCount)
+            .tag(PracticeTab.notifications)
+
+            TabNavigationStack(router: billingRouter, title: "Billing") {
+                PracticeBillingScreen(session: session)
+            }
+            .tabItem { Label("Billing", systemImage: "creditcard") }
+            .tag(PracticeTab.billing)
+
+            TabNavigationStack(router: settingsRouter, title: "Practice settings") {
+                PlaceholderScreen(title: "Practice settings", systemImage: "gearshape", message: "Practice settings land later.")
+            }
+            .tabItem { Label("Practice settings", systemImage: "gearshape") }
             .tag(PracticeTab.settings)
         }
         .safeAreaInset(edge: .top) {
@@ -86,28 +86,33 @@ struct PracticeTabView: View {
         }
         .task(id: session.user.id) {
             await loadPersistedBanner()
+            await loadNotificationUnreadCount()
             await loadMessageUnreadCount()
             for await notification in env.api.notificationStream(for: session.user.id) {
                 withAnimation {
                     bannerNotification = notification
                 }
+                await loadNotificationUnreadCount()
                 await loadMessageUnreadCount()
             }
         }
         .onChange(of: selectedTab) { _, newTab in
-            guard newTab == .messages else { return }
-            Task { await loadMessageUnreadCount() }
+            if newTab == .messages {
+                Task { await loadMessageUnreadCount() }
+            } else if newTab == .notifications {
+                Task { await loadNotificationUnreadCount() }
+            }
         }
     }
 
     private func openShift(_ id: Shift.ID) {
-        selectedTab = .shifts
-        shiftsRouter.append(.shiftDetail(id))
+        selectedTab = .dashboard
+        dashboardRouter.append(.shiftDetail(id))
     }
 
     private func openApplicants(_ id: Shift.ID) {
-        selectedTab = .applicants
-        applicantsRouter.append(.applicants(id))
+        selectedTab = .dashboard
+        dashboardRouter.append(.applicants(id))
     }
 
     private func handleBannerTap(_ notification: AppNotification) {
@@ -120,6 +125,7 @@ struct PracticeTabView: View {
         }
         Task {
             try? await env.api.markRead(notification.id)
+            await loadNotificationUnreadCount()
         }
         withAnimation {
             bannerNotification = nil
@@ -129,14 +135,14 @@ struct PracticeTabView: View {
     private func routeTo(_ route: Route) {
         switch route {
         case .shiftDetail:
-            selectedTab = .shifts
-            shiftsRouter.append(route)
-        case .applicants:
-            selectedTab = .applicants
-            applicantsRouter.append(route)
-        case .bookingDetail:
             selectedTab = .dashboard
             dashboardRouter.append(route)
+        case .applicants:
+            selectedTab = .dashboard
+            dashboardRouter.append(route)
+        case .bookingDetail:
+            selectedTab = .billing
+            billingRouter.append(route)
         case .messageThread:
             selectedTab = .messages
             messagesRouter.append(route)
@@ -144,6 +150,11 @@ struct PracticeTabView: View {
             selectedTab = .dashboard
             dashboardRouter.append(route)
         }
+    }
+
+    private func loadNotificationUnreadCount() async {
+        guard let count = try? await env.api.unreadCount(for: session.user.id) else { return }
+        notificationUnreadCount = count
     }
 
     private func loadPersistedBanner() async {

@@ -108,6 +108,76 @@ final class NotifEyesTests: XCTestCase {
         XCTAssertTrue(applicants.contains { $0.id == application.id })
     }
 
+    func testNotificationReadStateMutationsAreUserScoped() async throws {
+        let api = MockAPI()
+
+        let initialMayaCount = try await api.unreadCount(for: SeedIDs.mayaUser)
+        let initialBayviewCount = try await api.unreadCount(for: SeedIDs.bayviewUser)
+
+        XCTAssertGreaterThan(initialMayaCount, 0)
+        XCTAssertGreaterThan(initialBayviewCount, 0)
+
+        try await api.markRead(SeedIDs.notificationMaya)
+
+        let mayaCountAfterMarkRead = try await api.unreadCount(for: SeedIDs.mayaUser)
+        let bayviewCountAfterMarkRead = try await api.unreadCount(for: SeedIDs.bayviewUser)
+
+        XCTAssertEqual(mayaCountAfterMarkRead, initialMayaCount - 1)
+        XCTAssertEqual(bayviewCountAfterMarkRead, initialBayviewCount)
+
+        try await api.markAllRead(for: SeedIDs.bayviewUser)
+
+        let bayviewCountAfterMarkAllRead = try await api.unreadCount(for: SeedIDs.bayviewUser)
+        let mayaCountAfterBayviewMarkAllRead = try await api.unreadCount(for: SeedIDs.mayaUser)
+
+        XCTAssertEqual(bayviewCountAfterMarkAllRead, 0)
+        XCTAssertEqual(mayaCountAfterBayviewMarkAllRead, initialMayaCount - 1)
+    }
+
+    func testSimulateMatchingShiftCreatesUnreadWatchMatchActionURL() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .mayaPatel)
+        let initialUnreadCount = try await api.unreadCount(for: SeedIDs.mayaUser)
+        let notification = try await api.simulateMatchingShift(for: SeedIDs.mayaZone)
+        let shiftId = try XCTUnwrap(notification.payload["shiftId"])
+
+        XCTAssertEqual(notification.kind, .watch_match)
+        XCTAssertNil(notification.readAt)
+        XCTAssertEqual(notification.payload["watchZoneId"], SeedIDs.mayaZone.uuidString)
+        XCTAssertEqual(notification.actionUrl, "/shifts/\(shiftId)")
+
+        let notifications = try await api.notifications(for: SeedIDs.mayaUser)
+        let finalUnreadCount = try await api.unreadCount(for: SeedIDs.mayaUser)
+
+        XCTAssertTrue(notifications.contains(notification))
+        XCTAssertEqual(finalUnreadCount, initialUnreadCount + 1)
+    }
+
+    func testPayoutsForODReturnSeededRowsAndTotals() async throws {
+        let api = MockAPI()
+
+        let payouts = try await api.payouts(for: SeedIDs.mayaOD)
+        let totalCents = payouts.reduce(0) { $0 + $1.amountCents }
+
+        XCTAssertEqual(payouts.count, 1)
+        XCTAssertEqual(payouts.first?.id, SeedIDs.payoutMaya)
+        XCTAssertEqual(payouts.first?.status, .sent)
+        XCTAssertEqual(totalCents, 82_500)
+    }
+
+    func testInvoicesForPracticeDeriveBillingLinesFromBookings() async throws {
+        let api = MockAPI()
+
+        let lines = try await api.invoices(for: SeedIDs.bayviewPractice)
+        let line = try XCTUnwrap(lines.first { $0.bookingId == SeedIDs.bookingMaya })
+
+        XCTAssertEqual(lines.count, 1)
+        XCTAssertEqual(line.status, "authorized")
+        XCTAssertEqual(line.platformFeeCents, matchFeeCents)
+        XCTAssertEqual(line.subtotalCents, line.totalCents - line.platformFeeCents)
+    }
+
     func testCreatePolygonWatchZonePersistsContractShape() async throws {
         let api = MockAPI()
         let maya = try await api.switchDemoActor(to: .mayaPatel)

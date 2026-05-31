@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum ODTab: Hashable {
-    case home
     case shifts
     case watch
-    case bookings
+    case notifications
+    case payouts
     case messages
     case profile
 }
@@ -14,45 +14,39 @@ struct ODTabView: View {
 
     var session: Session
 
-    @State private var selectedTab: ODTab = .home
-    @State private var homeRouter = Router()
+    @State private var selectedTab: ODTab = .shifts
     @State private var shiftsRouter = Router()
     @State private var watchRouter = Router()
-    @State private var bookingsRouter = Router()
+    @State private var notificationsRouter = Router()
+    @State private var payoutsRouter = Router()
     @State private var messagesRouter = Router()
     @State private var profileRouter = Router()
     @State private var bannerNotification: AppNotification?
+    @State private var notificationUnreadCount = 0
     @State private var messageUnreadCount = 0
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            TabNavigationStack(router: homeRouter, title: "Home") {
-                ODHomeScreen(
-                    session: session,
-                    openShift: { openShift($0) },
-                    openWatch: { selectedTab = .shifts }
-                )
-            }
-            .tabItem { Label("Home", systemImage: "house") }
-            .tag(ODTab.home)
-
-            TabNavigationStack(router: shiftsRouter, title: "Shifts") {
+            TabNavigationStack(router: shiftsRouter, title: "Browse shifts") {
                 ODBrowseShiftsScreen(session: session, openShift: { openShift($0) })
             }
-            .tabItem { Label("Shifts", systemImage: "calendar") }
+            .tabItem { Label("Browse shifts", systemImage: "calendar") }
             .tag(ODTab.shifts)
 
-            TabNavigationStack(router: watchRouter, title: "Watch") {
+            TabNavigationStack(router: watchRouter, title: "Watch zones") {
                 ODWatchZonesScreen(session: session, openEditor: { openWatchEditor($0) })
             }
-            .tabItem { Label("Watch", systemImage: "scope") }
+            .tabItem { Label("Watch zones", systemImage: "scope") }
             .tag(ODTab.watch)
 
-            TabNavigationStack(router: bookingsRouter, title: "Bookings") {
-                ODBookingsScreen(session: session)
+            TabNavigationStack(router: notificationsRouter, title: "Notifications") {
+                NotificationsListScreen(session: session, onNotificationStateChanged: {
+                    Task { await loadNotificationUnreadCount() }
+                })
             }
-            .tabItem { Label("Bookings", systemImage: "checklist.checked") }
-            .tag(ODTab.bookings)
+            .tabItem { Label("Notifications", systemImage: "bell") }
+            .badge(notificationUnreadCount)
+            .tag(ODTab.notifications)
 
             TabNavigationStack(router: messagesRouter, title: "Messages") {
                 MessagesListScreen(session: session)
@@ -61,10 +55,16 @@ struct ODTabView: View {
             .badge(messageUnreadCount)
             .tag(ODTab.messages)
 
-            TabNavigationStack(router: profileRouter, title: "Profile") {
+            TabNavigationStack(router: payoutsRouter, title: "Payouts") {
+                ODPayoutsScreen(session: session)
+            }
+            .tabItem { Label("Payouts", systemImage: "banknote") }
+            .tag(ODTab.payouts)
+
+            TabNavigationStack(router: profileRouter, title: "My profile") {
                 ODProfileScreen(session: session)
             }
-            .tabItem { Label("Profile", systemImage: "person.crop.circle") }
+            .tabItem { Label("My profile", systemImage: "person.crop.circle") }
             .tag(ODTab.profile)
         }
         .safeAreaInset(edge: .top) {
@@ -79,17 +79,22 @@ struct ODTabView: View {
         }
         .task(id: session.user.id) {
             await loadPersistedBanner()
+            await loadNotificationUnreadCount()
             await loadMessageUnreadCount()
             for await notification in env.api.notificationStream(for: session.user.id) {
                 withAnimation {
                     bannerNotification = notification
                 }
+                await loadNotificationUnreadCount()
                 await loadMessageUnreadCount()
             }
         }
         .onChange(of: selectedTab) { _, newTab in
-            guard newTab == .messages else { return }
-            Task { await loadMessageUnreadCount() }
+            if newTab == .messages {
+                Task { await loadMessageUnreadCount() }
+            } else if newTab == .notifications {
+                Task { await loadNotificationUnreadCount() }
+            }
         }
     }
 
@@ -109,6 +114,7 @@ struct ODTabView: View {
         }
         Task {
             try? await env.api.markRead(notification.id)
+            await loadNotificationUnreadCount()
         }
         withAnimation {
             bannerNotification = nil
@@ -121,8 +127,8 @@ struct ODTabView: View {
             selectedTab = .shifts
             shiftsRouter.append(route)
         case .bookingDetail:
-            selectedTab = .bookings
-            bookingsRouter.append(route)
+            selectedTab = .payouts
+            payoutsRouter.append(route)
         case .messageThread:
             selectedTab = .messages
             messagesRouter.append(route)
@@ -133,6 +139,11 @@ struct ODTabView: View {
             selectedTab = .shifts
             shiftsRouter.append(route)
         }
+    }
+
+    private func loadNotificationUnreadCount() async {
+        guard let count = try? await env.api.unreadCount(for: session.user.id) else { return }
+        notificationUnreadCount = count
     }
 
     private func loadPersistedBanner() async {
