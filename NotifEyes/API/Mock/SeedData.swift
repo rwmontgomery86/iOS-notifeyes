@@ -99,7 +99,7 @@ enum SeedData {
                 .yaraBrennan: SeedIDs.yaraUser,
                 .bayviewEyeCare: SeedIDs.bayviewUser
             ],
-            currentUserId: SeedIDs.mayaUser
+            currentUserId: nil
         )
     }
 

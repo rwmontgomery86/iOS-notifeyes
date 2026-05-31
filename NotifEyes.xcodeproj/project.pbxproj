@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1A0000000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000002 /* Assets.xcassets */; };
+		1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000002 /* NotifEyes/Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -21,26 +21,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1A0000000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = NotifEyes/Resources/Assets.xcassets; sourceTree = "<group>"; };
+		1A0000000000000000000002 /* NotifEyes/Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = NotifEyes/Resources/Assets.xcassets; sourceTree = "<group>"; };
 		1A0000000000000000000006 /* NotifEyes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotifEyes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000000000000000000007 /* NotifEyesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotifEyesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		1A0000000000000000000008 /* NotifEyes */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				1A0000000000000000000009 /* Exceptions for "NotifEyes" folder in "NotifEyes" target */,
-			);
-			path = NotifEyes;
-			sourceTree = "<group>";
-		};
-		1A000000000000000000000A /* NotifEyesTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = NotifEyesTests;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		1A0000000000000000000009 /* Exceptions for "NotifEyes" folder in "NotifEyes" target */ = {
@@ -67,12 +51,28 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		1A0000000000000000000008 /* NotifEyes */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1A0000000000000000000009 /* Exceptions for "NotifEyes" folder in "NotifEyes" target */,
+			);
+			path = NotifEyes;
+			sourceTree = "<group>";
+		};
+		1A000000000000000000000A /* NotifEyesTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = NotifEyesTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		1A000000000000000000000B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A0000000000000000000001 /* Assets.xcassets in Resources */,
+				1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,7 +92,7 @@
 				1A0000000000000000000008 /* NotifEyes */,
 				1A000000000000000000000A /* NotifEyesTests */,
 				1A000000000000000000000E /* Products */,
-				1A0000000000000000000002 /* Assets.xcassets */,
+				1A0000000000000000000002 /* NotifEyes/Resources/Assets.xcassets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -467,15 +467,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A0000000000000000000017 /* Build configuration list for PBXProject "NotifEyes" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1A0000000000000000000018 /* Debug */,
-				1A0000000000000000000019 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1A000000000000000000000F /* Build configuration list for PBXNativeTarget "NotifEyes" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -490,6 +481,15 @@
 			buildConfigurations = (
 				1A000000000000000000001C /* Debug */,
 				1A000000000000000000001D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000000000000000000017 /* Build configuration list for PBXProject "NotifEyes" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000000000000000000018 /* Debug */,
+				1A0000000000000000000019 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

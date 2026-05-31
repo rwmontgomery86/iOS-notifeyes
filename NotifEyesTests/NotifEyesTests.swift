@@ -68,9 +68,7 @@ final class NotifEyesTests: XCTestCase {
         let api = MockAPI()
 
         let currentSession = try await api.currentSession()
-        let initial = try XCTUnwrap(currentSession)
-        XCTAssertEqual(initial.user.email, DemoActor.mayaPatel.demoEmail)
-        XCTAssertEqual(initial.role, .od)
+        XCTAssertNil(currentSession)
 
         let bayview = try await api.switchDemoActor(to: .bayviewEyeCare)
         XCTAssertEqual(bayview.user.email, DemoActor.bayviewEyeCare.demoEmail)
