@@ -169,6 +169,43 @@ final class NotifEyesTests: XCTestCase {
         XCTAssertEqual(offered.status, .offered)
     }
 
+    func testBookingDetailLifecycleActionsMutateState() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .mayaPatel)
+        let signedContract = try await api.signContract(booking: SeedIDs.bookingMaya, as: .od)
+        XCTAssertNotNil(signedContract.signedByOdAt)
+
+        let checkedIn = try await api.checkIn(booking: SeedIDs.bookingMaya)
+        XCTAssertEqual(checkedIn.status, .in_progress)
+        XCTAssertNotNil(checkedIn.checkInAt)
+
+        let checkedOut = try await api.checkOut(booking: SeedIDs.bookingMaya)
+        XCTAssertEqual(checkedOut.status, .completed)
+        XCTAssertNotNil(checkedOut.checkOutAt)
+
+        let detail = try await api.booking(id: SeedIDs.bookingMaya)
+        XCTAssertEqual(detail.booking.status, .completed)
+    }
+
+    func testCancelBookingClosesShiftAndNotifiesParticipants() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .bayviewEyeCare)
+        let booking = try await api.bookApplicant(SeedIDs.appYaraBayview)
+        let cancelled = try await api.cancelBooking(booking.id, reason: "Practice schedule changed.")
+        let shiftDetail = try await api.shift(id: SeedIDs.shiftBayviewPosted)
+        let yaraNotifications = try await api.notifications(for: SeedIDs.yaraUser)
+
+        XCTAssertEqual(cancelled.status, .cancelled)
+        XCTAssertEqual(cancelled.paymentStatus, "cancelled")
+        XCTAssertEqual(cancelled.cancellationReason, "Practice schedule changed.")
+        XCTAssertEqual(shiftDetail.shift.status, .cancelled)
+        XCTAssertTrue(yaraNotifications.contains {
+            $0.kind == .cancellation && $0.payload["bookingId"] == booking.id.uuidString
+        })
+    }
+
     func testLiveAPIStubsThrowNotImplemented() async {
         do {
             _ = try await LiveAPI().currentSession()

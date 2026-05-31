@@ -53,6 +53,23 @@ extension ApplicationStatus {
     }
 }
 
+extension BookingStatus {
+    var displayName: String {
+        switch self {
+        case .confirmed:
+            return "Confirmed"
+        case .in_progress:
+            return "In progress"
+        case .completed:
+            return "Completed"
+        case .cancelled:
+            return "Cancelled"
+        case .no_show:
+            return "No-show"
+        }
+    }
+}
+
 extension VerificationStatus {
     var displayName: String {
         switch self {

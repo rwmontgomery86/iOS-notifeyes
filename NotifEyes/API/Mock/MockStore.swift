@@ -390,6 +390,16 @@ actor MockStore {
         }
         let application = state.applications[appIndex]
         let shift = try shiftValue(id: application.shiftId)
+        let session = try requireCurrentSession()
+        guard session.role == .practice, session.user.practiceId == shift.practiceId else {
+            throw APIError.unauthorized
+        }
+        if let existing = state.bookings.first(where: { $0.applicationId == applicationId }) {
+            return existing
+        }
+        guard shift.status == .posted else {
+            throw APIError.invalid("Only posted shifts can be booked.")
+        }
         let cost = computeShiftCost(
             rateCentsPerHour: shift.rateCentsPerHour,
             startsAt: shift.startsAt,
@@ -455,6 +465,9 @@ actor MockStore {
 
     func signContract(booking id: Booking.ID, as role: SessionRole) throws -> Contract {
         let booking = try bookingValue(id: id)
+        guard booking.status != .cancelled else {
+            throw APIError.invalid("Cancelled bookings cannot be signed.")
+        }
         guard let contractId = booking.contractId, let index = state.contracts.firstIndex(where: { $0.id == contractId }) else {
             throw APIError.notFound
         }
@@ -471,6 +484,9 @@ actor MockStore {
         guard let index = state.bookings.firstIndex(where: { $0.id == id }) else {
             throw APIError.notFound
         }
+        guard state.bookings[index].status == .confirmed else {
+            throw APIError.invalid("Only confirmed bookings can be checked in.")
+        }
         state.bookings[index].status = .in_progress
         state.bookings[index].checkInAt = Date()
         return state.bookings[index]
@@ -479,6 +495,9 @@ actor MockStore {
     func checkOut(booking id: Booking.ID) throws -> Booking {
         guard let index = state.bookings.firstIndex(where: { $0.id == id }) else {
             throw APIError.notFound
+        }
+        guard state.bookings[index].status == .in_progress else {
+            throw APIError.invalid("Only in-progress bookings can be checked out.")
         }
         state.bookings[index].status = .completed
         state.bookings[index].checkOutAt = Date()
@@ -492,9 +511,29 @@ actor MockStore {
         guard let index = state.bookings.firstIndex(where: { $0.id == id }) else {
             throw APIError.notFound
         }
+        guard state.bookings[index].status != .completed, state.bookings[index].status != .cancelled else {
+            throw APIError.invalid("This booking can no longer be cancelled.")
+        }
         state.bookings[index].status = .cancelled
-        state.bookings[index].cancellationReason = reason
+        state.bookings[index].cancellationReason = reason.isEmpty ? "Cancelled from demo workspace." : reason
         state.bookings[index].cancellationFeeCents = 5_000
+        state.bookings[index].paymentStatus = "cancelled"
+        if let shiftIndex = state.shifts.firstIndex(where: { $0.id == state.bookings[index].shiftId }) {
+            state.shifts[shiftIndex].status = .cancelled
+        }
+
+        let participantIds = usersForPractice(state.bookings[index].practiceId).map(\.id) + usersForOD(state.bookings[index].odId).map(\.id)
+        for userId in participantIds {
+            storeAndEmit(AppNotification(
+                id: UUID(),
+                userId: userId,
+                kind: .cancellation,
+                payload: ["bookingId": id.uuidString],
+                actionUrl: "/bookings/\(id.uuidString)",
+                readAt: nil,
+                createdAt: Date()
+            ))
+        }
         return state.bookings[index]
     }
 
