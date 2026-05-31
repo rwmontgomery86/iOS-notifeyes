@@ -6,7 +6,7 @@ struct ChannelChips: View {
     var body: some View {
         HStack {
             ForEach(channels, id: \.self) { channel in
-                StatusBadge(text: channel.rawValue.uppercased(), color: .secondary)
+                StatusBadge(text: channel.rawValue.uppercased(), color: Color.secondary)
             }
         }
     }

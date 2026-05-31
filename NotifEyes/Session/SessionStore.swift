@@ -24,7 +24,7 @@ final class SessionStore {
         do {
             session = try await api.currentSession()
         } catch {
-            errorMessage = Self.message(for: error)
+            errorMessage = userFacingMessage(for: error)
         }
     }
 
@@ -36,7 +36,7 @@ final class SessionStore {
         do {
             session = try await api.signIn(email: email, password: password)
         } catch {
-            errorMessage = Self.message(for: error)
+            errorMessage = userFacingMessage(for: error)
         }
     }
 
@@ -49,7 +49,7 @@ final class SessionStore {
             try await api.signOut()
             session = nil
         } catch {
-            errorMessage = Self.message(for: error)
+            errorMessage = userFacingMessage(for: error)
         }
     }
 
@@ -61,22 +61,7 @@ final class SessionStore {
         do {
             session = try await api.switchDemoActor(to: actor)
         } catch {
-            errorMessage = Self.message(for: error)
-        }
-    }
-
-    private static func message(for error: Error) -> String {
-        switch error {
-        case APIError.notImplemented:
-            return "This API is not implemented yet."
-        case APIError.notFound:
-            return "That record could not be found."
-        case let APIError.invalid(message):
-            return message
-        case APIError.unauthorized:
-            return "You are not authorized for that action."
-        default:
-            return error.localizedDescription
+            errorMessage = userFacingMessage(for: error)
         }
     }
 }

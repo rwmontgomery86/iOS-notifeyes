@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000002 /* NotifEyes/Resources/Assets.xcassets */; };
+		1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000002 /* NotifEyes/Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,7 +72,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -197,6 +196,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A0000000000000000000001 /* NotifEyes/Resources/Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

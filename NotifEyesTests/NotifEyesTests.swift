@@ -108,6 +108,46 @@ final class NotifEyesTests: XCTestCase {
         XCTAssertTrue(applicants.contains { $0.id == application.id })
     }
 
+    func testCreatePolygonWatchZonePersistsContractShape() async throws {
+        let api = MockAPI()
+        let maya = try await api.switchDemoActor(to: .mayaPatel)
+        let odId = try XCTUnwrap(maya.user.odId)
+
+        let zone = try await api.createWatchZone(CreateWatchZoneInput(
+            name: "Test polygon",
+            geometryMeta: .polygon(points: [
+                LatLng(lat: 37.7, lng: -122.5),
+                LatLng(lat: 37.6, lng: -122.3),
+                LatLng(lat: 37.8, lng: -122.2)
+            ]),
+            daysOfWeek: [1, 2, 3],
+            timeStart: nil,
+            timeEnd: nil,
+            minRateCents: 10_000,
+            shiftTypes: [.fill_in],
+            notifyChannels: [.email]
+        ))
+
+        let zones = try await api.watchZones(for: odId)
+        XCTAssertTrue(zones.contains(zone))
+        XCTAssertEqual(zone.shape, .polygon)
+    }
+
+    func testBookApplicantCreatesBookingAndClosesShift() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .yaraBrennan)
+        let application = try await api.apply(to: SeedIDs.shiftBayviewPosted, message: "Available.", source: .apply)
+
+        _ = try await api.switchDemoActor(to: .bayviewEyeCare)
+        let booking = try await api.bookApplicant(application.id)
+        let detail = try await api.shift(id: SeedIDs.shiftBayviewPosted)
+
+        XCTAssertEqual(booking.applicationId, application.id)
+        XCTAssertEqual(detail.shift.status, .booked)
+        XCTAssertEqual(detail.shift.bookedApplicationId, application.id)
+    }
+
     func testLiveAPIStubsThrowNotImplemented() async {
         do {
             _ = try await LiveAPI().currentSession()
@@ -121,7 +161,7 @@ final class NotifEyesTests: XCTestCase {
 
     private func makeDate(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .current
         var components = DateComponents()
         components.calendar = calendar
         components.timeZone = calendar.timeZone

@@ -833,13 +833,13 @@ private extension MockStore {
 
     func dayOfWeek(for date: Date) -> Int {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .current
         return calendar.component(.weekday, from: date) - 1
     }
 
     func minutesSinceMidnight(_ date: Date) -> Int {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .current
         return calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
     }
 

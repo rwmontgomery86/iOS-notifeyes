@@ -10,6 +10,8 @@ enum ODTab: Hashable {
 }
 
 struct ODTabView: View {
+    @Environment(AppEnvironment.self) private var env
+
     var session: Session
 
     @State private var selectedTab: ODTab = .home
@@ -19,29 +21,34 @@ struct ODTabView: View {
     @State private var bookingsRouter = Router()
     @State private var messagesRouter = Router()
     @State private var profileRouter = Router()
+    @State private var bannerNotification: AppNotification?
 
     var body: some View {
         TabView(selection: $selectedTab) {
             TabNavigationStack(router: homeRouter, title: "Home") {
-                ODHomePlaceholder(session: session)
+                ODHomeScreen(
+                    session: session,
+                    openShift: { openShift($0) },
+                    openWatch: { selectedTab = .shifts }
+                )
             }
             .tabItem { Label("Home", systemImage: "house") }
             .tag(ODTab.home)
 
             TabNavigationStack(router: shiftsRouter, title: "Shifts") {
-                PlaceholderScreen(title: "Shifts", systemImage: "calendar.badge.clock", message: "Browse matching and nearby shifts in Phase 2.")
+                ODBrowseShiftsScreen(session: session, openShift: { openShift($0) })
             }
             .tabItem { Label("Shifts", systemImage: "calendar") }
             .tag(ODTab.shifts)
 
             TabNavigationStack(router: watchRouter, title: "Watch") {
-                PlaceholderScreen(title: "Watch", systemImage: "map", message: "Watch zones and alerts land in Phase 2.")
+                ODWatchZonesScreen(session: session, openEditor: { openWatchEditor($0) })
             }
             .tabItem { Label("Watch", systemImage: "scope") }
             .tag(ODTab.watch)
 
             TabNavigationStack(router: bookingsRouter, title: "Bookings") {
-                PlaceholderScreen(title: "Bookings", systemImage: "checklist.checked", message: "Your confirmed shifts and contracts land later.")
+                ODBookingsScreen(session: session)
             }
             .tabItem { Label("Bookings", systemImage: "checklist.checked") }
             .tag(ODTab.bookings)
@@ -53,34 +60,80 @@ struct ODTabView: View {
             .tag(ODTab.messages)
 
             TabNavigationStack(router: profileRouter, title: "Profile") {
-                PlaceholderScreen(title: "Profile", systemImage: "person.crop.circle", message: "OD profile completion lands later.")
+                ODProfileScreen(session: session)
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
             .tag(ODTab.profile)
         }
-    }
-}
-
-private struct ODHomePlaceholder: View {
-    var session: Session
-
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Welcome, \(session.user.name ?? "OD")")
-                        .font(.title2.weight(.bold))
-                    Text("Watch-match alerts and nearby shifts land here next.")
-                        .foregroundStyle(.secondary)
+        .safeAreaInset(edge: .top) {
+            if let bannerNotification {
+                NotificationBanner(notification: bannerNotification) {
+                    handleBannerTap(bannerNotification)
+                } onDismiss: {
+                    withAnimation { self.bannerNotification = nil }
                 }
-                .padding(.vertical, 6)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
+        }
+        .task(id: session.user.id) {
+            await loadPersistedBanner()
+            for await notification in env.api.notificationStream(for: session.user.id) {
+                withAnimation {
+                    bannerNotification = notification
+                }
+            }
+        }
+    }
 
-            Section("Phase 1 shell") {
-                Label("Role-routed OD tab tree", systemImage: "checkmark.circle.fill")
-                Label("Global demo switcher", systemImage: "person.2")
-                Label("Per-tab navigation stacks", systemImage: "square.stack.3d.up")
-            }
+    private func openShift(_ id: Shift.ID) {
+        selectedTab = .shifts
+        shiftsRouter.append(.shiftDetail(id))
+    }
+
+    private func openWatchEditor(_ id: WatchZone.ID?) {
+        selectedTab = .watch
+        watchRouter.append(.watchZoneEditor(id))
+    }
+
+    private func handleBannerTap(_ notification: AppNotification) {
+        if let route = notification.actionUrl.flatMap(DeepLink.parse) {
+            routeTo(route)
+        }
+        Task {
+            try? await env.api.markRead(notification.id)
+        }
+        withAnimation {
+            bannerNotification = nil
+        }
+    }
+
+    private func routeTo(_ route: Route) {
+        switch route {
+        case .shiftDetail:
+            selectedTab = .shifts
+            shiftsRouter.append(route)
+        case .bookingDetail:
+            selectedTab = .bookings
+            bookingsRouter.append(route)
+        case .messageThread:
+            selectedTab = .messages
+            messagesRouter.append(route)
+        case .watchZoneEditor:
+            selectedTab = .watch
+            watchRouter.append(route)
+        case .odProfile, .practiceProfile, .review, .applicants:
+            selectedTab = .shifts
+            shiftsRouter.append(route)
+        }
+    }
+
+    private func loadPersistedBanner() async {
+        guard let notification = try? await env.api.notifications(for: session.user.id)
+            .first(where: { $0.readAt == nil && $0.kind == .watch_match })
+        else { return }
+
+        withAnimation {
+            bannerNotification = notification
         }
     }
 }

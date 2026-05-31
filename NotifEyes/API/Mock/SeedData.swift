@@ -217,7 +217,7 @@ enum SeedData {
 
     static func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .current
         var components = DateComponents()
         components.calendar = calendar
         components.timeZone = calendar.timeZone

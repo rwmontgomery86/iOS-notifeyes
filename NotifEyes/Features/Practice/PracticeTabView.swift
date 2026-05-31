@@ -10,6 +10,8 @@ enum PracticeTab: Hashable {
 }
 
 struct PracticeTabView: View {
+    @Environment(AppEnvironment.self) private var env
+
     var session: Session
 
     @State private var selectedTab: PracticeTab = .dashboard
@@ -19,29 +21,41 @@ struct PracticeTabView: View {
     @State private var applicantsRouter = Router()
     @State private var messagesRouter = Router()
     @State private var settingsRouter = Router()
+    @State private var bannerNotification: AppNotification?
 
     var body: some View {
         TabView(selection: $selectedTab) {
             TabNavigationStack(router: dashboardRouter, title: "Dashboard") {
-                PracticeDashboardPlaceholder(session: session)
+                PracticeDashboardScreen(
+                    session: session,
+                    openShift: { openShift($0) },
+                    openApplicants: { openApplicants($0) }
+                )
             }
             .tabItem { Label("Dashboard", systemImage: "rectangle.grid.2x2") }
             .tag(PracticeTab.dashboard)
 
             TabNavigationStack(router: postRouter, title: "Post") {
-                PlaceholderScreen(title: "Post", systemImage: "plus.circle", message: "The stepped post-a-shift flow lands in Phase 2.")
+                PostShiftScreen(session: session, onPosted: { postedShiftId in
+                    selectedTab = .shifts
+                    shiftsRouter.append(.shiftDetail(postedShiftId))
+                })
             }
             .tabItem { Label("Post", systemImage: "plus.circle") }
             .tag(PracticeTab.post)
 
             TabNavigationStack(router: shiftsRouter, title: "Shifts") {
-                PlaceholderScreen(title: "Shifts", systemImage: "calendar", message: "Open shifts and applicant counts land in Phase 2.")
+                PracticeShiftsScreen(
+                    session: session,
+                    openShift: { openShift($0) },
+                    openApplicants: { openApplicants($0) }
+                )
             }
             .tabItem { Label("Shifts", systemImage: "calendar") }
             .tag(PracticeTab.shifts)
 
             TabNavigationStack(router: applicantsRouter, title: "Applicants") {
-                PlaceholderScreen(title: "Applicants", systemImage: "person.crop.circle.badge.checkmark", message: "Applications and booking actions land in Phase 2.")
+                PracticeApplicantsOverviewScreen(session: session)
             }
             .tabItem { Label("Applicants", systemImage: "person.crop.circle.badge.checkmark") }
             .tag(PracticeTab.applicants)
@@ -58,29 +72,79 @@ struct PracticeTabView: View {
             .tabItem { Label("Settings", systemImage: "gearshape") }
             .tag(PracticeTab.settings)
         }
-    }
-}
-
-private struct PracticeDashboardPlaceholder: View {
-    var session: Session
-
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(session.user.name ?? "Practice dashboard")
-                        .font(.title2.weight(.bold))
-                    Text("Open shifts and applicant counts land here next.")
-                        .foregroundStyle(.secondary)
+        .safeAreaInset(edge: .top) {
+            if let bannerNotification {
+                NotificationBanner(notification: bannerNotification) {
+                    handleBannerTap(bannerNotification)
+                } onDismiss: {
+                    withAnimation { self.bannerNotification = nil }
                 }
-                .padding(.vertical, 6)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
+        }
+        .task(id: session.user.id) {
+            await loadPersistedBanner()
+            for await notification in env.api.notificationStream(for: session.user.id) {
+                withAnimation {
+                    bannerNotification = notification
+                }
+            }
+        }
+    }
 
-            Section("Phase 1 shell") {
-                Label("Role-routed practice tab tree", systemImage: "checkmark.circle.fill")
-                Label("Global demo switcher", systemImage: "person.2")
-                Label("Per-tab navigation stacks", systemImage: "square.stack.3d.up")
-            }
+    private func openShift(_ id: Shift.ID) {
+        selectedTab = .shifts
+        shiftsRouter.append(.shiftDetail(id))
+    }
+
+    private func openApplicants(_ id: Shift.ID) {
+        selectedTab = .applicants
+        applicantsRouter.append(.applicants(id))
+    }
+
+    private func handleBannerTap(_ notification: AppNotification) {
+        if notification.kind == .new_applicant,
+           let idString = notification.payload["shiftId"],
+           let shiftId = UUID(uuidString: idString) {
+            openApplicants(shiftId)
+        } else if let route = notification.actionUrl.flatMap(DeepLink.parse) {
+            routeTo(route)
+        }
+        Task {
+            try? await env.api.markRead(notification.id)
+        }
+        withAnimation {
+            bannerNotification = nil
+        }
+    }
+
+    private func routeTo(_ route: Route) {
+        switch route {
+        case .shiftDetail:
+            selectedTab = .shifts
+            shiftsRouter.append(route)
+        case .applicants:
+            selectedTab = .applicants
+            applicantsRouter.append(route)
+        case .bookingDetail:
+            selectedTab = .dashboard
+            dashboardRouter.append(route)
+        case .messageThread:
+            selectedTab = .messages
+            messagesRouter.append(route)
+        case .odProfile, .practiceProfile, .review, .watchZoneEditor:
+            selectedTab = .dashboard
+            dashboardRouter.append(route)
+        }
+    }
+
+    private func loadPersistedBanner() async {
+        guard let notification = try? await env.api.notifications(for: session.user.id)
+            .first(where: { $0.readAt == nil && ($0.kind == .new_applicant || $0.kind == .booking_confirmed) })
+        else { return }
+
+        withAnimation {
+            bannerNotification = notification
         }
     }
 }

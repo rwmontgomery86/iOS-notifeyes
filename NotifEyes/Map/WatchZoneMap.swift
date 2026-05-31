@@ -4,6 +4,7 @@ import SwiftUI
 struct WatchZoneMap: View {
     var zones: [WatchZone]
     var shifts: [ShiftSummary]
+    var onShiftTap: ((Shift.ID) -> Void)?
 
     var body: some View {
         Map {
@@ -25,7 +26,20 @@ struct WatchZoneMap: View {
 
             ForEach(shifts) { shift in
                 if let location = shift.location {
-                    Marker(shift.practiceName, coordinate: location.coordinate)
+                    Annotation(shift.practiceName, coordinate: location.coordinate) {
+                        Button {
+                            onShiftTap?(shift.id)
+                        } label: {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .frame(width: 34, height: 34)
+                                .background(shift.urgent ? Color.red : Color.notifEyesBlue)
+                                .clipShape(Circle())
+                                .shadow(color: .black.opacity(0.18), radius: 5, x: 0, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
