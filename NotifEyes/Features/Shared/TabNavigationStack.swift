@@ -14,6 +14,7 @@ struct TabNavigationStack<Content: View>: View {
     var body: some View {
         NavigationStack(path: $router.path) {
             content()
+                .environment(router)
                 .navigationTitle(title)
                 .navigationDestination(for: Route.self) { route in
                     RouteDestinationView(route: route)

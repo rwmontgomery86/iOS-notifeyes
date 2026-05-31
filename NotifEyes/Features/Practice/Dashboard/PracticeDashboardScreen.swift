@@ -22,9 +22,11 @@ struct PracticeDashboardScreen: View {
                         .foregroundStyle(.secondary)
                 }
 
-                HStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     MetricTile(title: "Open shifts", value: "\(openRows.filter { $0.shift.status == .posted }.count)", footnote: "posted")
                     MetricTile(title: "Applicants", value: "\(openRows.reduce(0) { $0 + $1.applicantCount })", footnote: "active")
+                    MetricTile(title: "Bookings", value: "\(activeBookings.count)", footnote: "confirmed")
+                    MetricTile(title: "Authorized", value: formatUsd(activeBookings.reduce(0) { $0 + $1.booking.totalCents }), footnote: "practice total")
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -50,17 +52,25 @@ struct PracticeDashboardScreen: View {
                     } else {
                         ForEach(bookings.prefix(3)) { booking in
                             NavigationLink(value: Route.bookingDetail(booking.id)) {
-                                HStack {
+                                HStack(alignment: .top, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(booking.optometrist.displayName ?? booking.optometrist.name)
                                             .font(.headline)
                                         Text(booking.shift.startsAt.formatted(date: .abbreviated, time: .shortened))
                                             .foregroundStyle(.secondary)
+                                        Text(formatUsd(booking.booking.totalCents))
+                                            .font(.subheadline.weight(.semibold))
                                     }
                                     Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .trailing, spacing: 8) {
+                                        StatusBadge(
+                                            text: booking.booking.status.rawValue.replacingOccurrences(of: "_", with: " "),
+                                            color: booking.booking.status == .confirmed ? Color.notifEyesGreen : Color.notifEyesBlue
+                                        )
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                                 .padding(12)
                                 .background(.background)
@@ -86,6 +96,10 @@ struct PracticeDashboardScreen: View {
         .task(id: session.user.id) {
             await load()
         }
+    }
+
+    private var activeBookings: [BookingSummary] {
+        bookings.filter { $0.booking.status == .confirmed || $0.booking.status == .in_progress }
     }
 
     private func load() async {

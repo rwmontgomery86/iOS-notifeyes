@@ -142,10 +142,31 @@ final class NotifEyesTests: XCTestCase {
         _ = try await api.switchDemoActor(to: .bayviewEyeCare)
         let booking = try await api.bookApplicant(application.id)
         let detail = try await api.shift(id: SeedIDs.shiftBayviewPosted)
+        let bookingDetail = try await api.booking(id: booking.id)
+        let yaraNotifications = try await api.notifications(for: SeedIDs.yaraUser)
 
         XCTAssertEqual(booking.applicationId, application.id)
         XCTAssertEqual(detail.shift.status, .booked)
         XCTAssertEqual(detail.shift.bookedApplicationId, application.id)
+        XCTAssertNotNil(bookingDetail.contract)
+        XCTAssertNotNil(bookingDetail.thread)
+        XCTAssertTrue(yaraNotifications.contains {
+            $0.kind == .booking_confirmed && $0.payload["bookingId"] == booking.id.uuidString
+        })
+    }
+
+    func testPracticeCanMoveApplicantThroughReviewStates() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .yaraBrennan)
+        let application = try await api.apply(to: SeedIDs.shiftBayviewPosted, message: "Available.", source: .apply)
+
+        _ = try await api.switchDemoActor(to: .bayviewEyeCare)
+        let shortlisted = try await api.updateApplicationStatus(application.id, to: .shortlisted)
+        let offered = try await api.updateApplicationStatus(application.id, to: .offered)
+
+        XCTAssertEqual(shortlisted.status, .shortlisted)
+        XCTAssertEqual(offered.status, .offered)
     }
 
     func testLiveAPIStubsThrowNotImplemented() async {
