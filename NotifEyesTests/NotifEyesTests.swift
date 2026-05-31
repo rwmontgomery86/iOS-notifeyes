@@ -206,6 +206,29 @@ final class NotifEyesTests: XCTestCase {
         })
     }
 
+    func testSendingMessageAppendsAndNotifiesOtherParticipant() async throws {
+        let api = MockAPI()
+
+        _ = try await api.switchDemoActor(to: .bayviewEyeCare)
+        let message = try await api.sendMessage(thread: SeedIDs.threadBooking, body: "  See you Wednesday morning.  ")
+
+        _ = try await api.switchDemoActor(to: .mayaPatel)
+        let messages = try await api.messages(in: SeedIDs.threadBooking)
+        let notifications = try await api.notifications(for: SeedIDs.mayaUser)
+        let threadsBeforeRead = try await api.threads(for: SeedIDs.mayaUser)
+
+        XCTAssertEqual(message.body, "See you Wednesday morning.")
+        XCTAssertTrue(messages.contains(message))
+        XCTAssertTrue(notifications.contains {
+            $0.kind == .message_received && $0.payload["threadId"] == SeedIDs.threadBooking.uuidString
+        })
+        XCTAssertTrue(threadsBeforeRead.first { $0.id == SeedIDs.threadBooking }?.unreadCount ?? 0 > 0)
+
+        try await api.markThreadRead(SeedIDs.threadBooking, by: SeedIDs.mayaUser)
+        let threadsAfterRead = try await api.threads(for: SeedIDs.mayaUser)
+        XCTAssertEqual(threadsAfterRead.first { $0.id == SeedIDs.threadBooking }?.unreadCount, 0)
+    }
+
     func testLiveAPIStubsThrowNotImplemented() async {
         do {
             _ = try await LiveAPI().currentSession()

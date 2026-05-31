@@ -15,8 +15,8 @@ struct RouteDestinationView: View {
             PlaceholderScreen(title: "OD profile", systemImage: "stethoscope", message: "Public OD profiles land here later.")
         case .practiceProfile:
             PlaceholderScreen(title: "Practice profile", systemImage: "building.2", message: "Public practice profiles land here later.")
-        case .messageThread:
-            PlaceholderScreen(title: "Message thread", systemImage: "message", message: "Thread composer lands here later.")
+        case let .messageThread(id):
+            MessageThreadScreen(threadId: id)
         case .review:
             PlaceholderScreen(title: "Review", systemImage: "star", message: "Review submission lands here later.")
         case let .applicants(id):

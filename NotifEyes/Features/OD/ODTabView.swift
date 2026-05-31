@@ -22,6 +22,7 @@ struct ODTabView: View {
     @State private var messagesRouter = Router()
     @State private var profileRouter = Router()
     @State private var bannerNotification: AppNotification?
+    @State private var messageUnreadCount = 0
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -54,9 +55,10 @@ struct ODTabView: View {
             .tag(ODTab.bookings)
 
             TabNavigationStack(router: messagesRouter, title: "Messages") {
-                PlaceholderScreen(title: "Messages", systemImage: "message", message: "Practice conversations land later.")
+                MessagesListScreen(session: session)
             }
             .tabItem { Label("Messages", systemImage: "message") }
+            .badge(messageUnreadCount)
             .tag(ODTab.messages)
 
             TabNavigationStack(router: profileRouter, title: "Profile") {
@@ -77,11 +79,17 @@ struct ODTabView: View {
         }
         .task(id: session.user.id) {
             await loadPersistedBanner()
+            await loadMessageUnreadCount()
             for await notification in env.api.notificationStream(for: session.user.id) {
                 withAnimation {
                     bannerNotification = notification
                 }
+                await loadMessageUnreadCount()
             }
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            guard newTab == .messages else { return }
+            Task { await loadMessageUnreadCount() }
         }
     }
 
@@ -129,11 +137,19 @@ struct ODTabView: View {
 
     private func loadPersistedBanner() async {
         guard let notification = try? await env.api.notifications(for: session.user.id)
-            .first(where: { $0.readAt == nil && $0.kind == .watch_match })
+            .first(where: {
+                $0.readAt == nil &&
+                    ($0.kind == .watch_match || $0.kind == .message_received || $0.kind == .booking_confirmed)
+            })
         else { return }
 
         withAnimation {
             bannerNotification = notification
         }
+    }
+
+    private func loadMessageUnreadCount() async {
+        guard let threads = try? await env.api.threads(for: session.user.id) else { return }
+        messageUnreadCount = threads.reduce(0) { $0 + $1.unreadCount }
     }
 }

@@ -560,6 +560,10 @@ actor MockStore {
         guard state.threads.contains(where: { $0.id == thread }) else {
             throw APIError.notFound
         }
+        let session = try requireCurrentSession()
+        guard state.threadParticipants[thread, default: []].contains(session.user.id) else {
+            throw APIError.unauthorized
+        }
         return state.messages
             .filter { $0.threadId == thread }
             .sorted { $0.createdAt < $1.createdAt }
@@ -570,7 +574,14 @@ actor MockStore {
         guard state.threads.contains(where: { $0.id == threadId }) else {
             throw APIError.notFound
         }
-        let message = Message(id: UUID(), threadId: threadId, senderUserId: session.user.id, body: body, createdAt: Date(), systemKind: nil)
+        guard state.threadParticipants[threadId, default: []].contains(session.user.id) else {
+            throw APIError.unauthorized
+        }
+        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedBody.isEmpty else {
+            throw APIError.invalid("Message cannot be empty.")
+        }
+        let message = Message(id: UUID(), threadId: threadId, senderUserId: session.user.id, body: trimmedBody, createdAt: Date(), systemKind: nil)
         state.messages.append(message)
         if let index = state.threads.firstIndex(where: { $0.id == threadId }) {
             state.threads[index].lastMessageAt = message.createdAt
